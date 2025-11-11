@@ -67,7 +67,7 @@ export default function Page() {
     setCurrentUser('user@example.com');
     setIsAuthenticated(true);
     loadDemoData();
-  }, []);
+  }, [loadDemoData]);
 
   const handleLogout = useCallback(() => {
     setIsAuthenticated(false);
@@ -207,9 +207,18 @@ export default function Page() {
   );
 
   const handleSelectAll = useCallback(() => {
-    const filteredData = getFilteredData();
+    const collectionName =
+      activeTab === 'profiles'
+        ? 'profiles'
+        : activeTab === 'scripts'
+        ? 'scripts'
+        : activeTab === 'compliance'
+        ? 'compliance'
+        : 'apps';
+    const items = (allData[collectionName as keyof AllData] as ResourceItem[]) || [];
+    const filtered = filterItems(items, searchTerm, platformFilter);
     const newSelected = new Set<string>();
-    filteredData.forEach((item) => {
+    filtered.forEach((item) => {
       newSelected.add(`${item.type}-${item.id}`);
     });
     setSelectedItems(newSelected);
@@ -230,18 +239,18 @@ export default function Page() {
   const handleDownloadJSON = useCallback(() => {
     const data = getSelectedData();
     downloadJSON(data as ExportData, 'intune-configuration.json');
-  }, [selectedItems, allData]);
+  }, [selectedItems, allData, currentUser]);
 
   const handleDownloadHTML = useCallback(() => {
     const data = getSelectedData();
     const html = generateHTMLReport(data as ExportData);
     downloadHTML(html, 'intune-report.html');
-  }, [selectedItems, allData]);
+  }, [selectedItems, allData, currentUser]);
 
   const handleDownloadZIP = useCallback(() => {
     const data = getSelectedData();
     downloadZIP(data as ExportData, data.scripts);
-  }, [selectedItems, allData]);
+  }, [selectedItems, allData, currentUser]);
 
   // Helper Functions
   const getFilteredData = () => {

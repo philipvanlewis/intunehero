@@ -95,7 +95,7 @@ export const AutomatedSetup: React.FC<AutomatedSetupProps> = ({
         </div>
 
         <p className="text-xs text-gray-600 border-t border-gray-200 pt-4">
-          Your credentials are never stored. Authentication happens securely through Microsoft's
+          Your credentials are never stored. Authentication happens securely through Microsoft&apos;s
           login system.
         </p>
       </div>
