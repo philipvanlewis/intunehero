@@ -19,20 +19,30 @@ const GRAPH_API_BETA = 'https://graph.microsoft.com/beta';
 /**
  * Makes an authenticated call to the Microsoft Graph API
  * @param endpoint - The API endpoint (e.g., '/deviceManagement/deviceConfigurations')
- * @param apiVersion - The API version to use ('v1.0' or 'beta'). Defaults to 'v1.0'
- * @param options - Fetch options for the request
+ * @param options - Request options: { apiVersion?: 'v1.0' | 'beta', method?: 'GET' | 'POST' | etc, body?: any, headers?: any }
  * @returns Parsed JSON response from the API
  * @throws Error if the request fails or token acquisition fails
  */
 async function callGraphAPI<T>(
   endpoint: string,
-  apiVersion: 'v1.0' | 'beta' = 'v1.0',
-  options: RequestInit = {}
+  options: {
+    apiVersion?: 'v1.0' | 'beta';
+    method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+    body?: any;
+    headers?: Record<string, string>;
+  } = {}
 ): Promise<T> {
   try {
+    const {
+      apiVersion = 'v1.0',
+      method = 'GET',
+      body,
+      headers: customHeaders = {},
+    } = options;
+
     const baseUrl = apiVersion === 'beta' ? GRAPH_API_BETA : GRAPH_API_V1;
     const fullUrl = `${baseUrl}${endpoint}`;
-    console.log(`[GRAPH API] Calling (${apiVersion}): ${fullUrl}`);
+    console.log(`[GRAPH API] ${method} (${apiVersion}): ${fullUrl}`);
 
     const token = await acquireToken();
 
@@ -40,14 +50,20 @@ async function callGraphAPI<T>(
       throw new Error('No access token available. Please authenticate first.');
     }
 
-    const response = await fetch(fullUrl, {
-      ...options,
+    const fetchOptions: RequestInit = {
+      method,
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        ...options.headers,
+        ...customHeaders,
       },
-    });
+    };
+
+    if (body) {
+      fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+    }
+
+    const response = await fetch(fullUrl, fetchOptions);
 
     console.log(`[GRAPH API] Response status: ${response.status} ${response.statusText}`);
 
@@ -70,7 +86,7 @@ async function callGraphAPI<T>(
     }
 
     const data = await response.json();
-    console.log(`[GRAPH API] Response received`);
+    console.log(`[GRAPH API] Response received from ${endpoint}`);
     return data;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error calling Graph API';
@@ -80,22 +96,22 @@ async function callGraphAPI<T>(
 }
 
 /**
- * Loads device configuration profiles from Intune (Traditional Device Configurations)
+ * Loads device configuration profiles from Intune (Traditional v1.0 - Legacy)
  * Endpoint: GET /deviceManagement/deviceConfigurations
  * API Version: v1.0 (stable)
  * Requires scope: DeviceManagementConfiguration.Read.All
- * @returns Array of configuration profiles
+ * @returns Array of traditional device configuration profiles
  */
-export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[]> {
+export async function loadDeviceConfigurations(): Promise<ConfigurationProfile[]> {
   try {
-    console.log('[GRAPH API] Loading device configuration profiles (traditional)...');
+    console.log('[GRAPH API] Loading traditional device configurations (v1.0)...');
     const response = await callGraphAPI<{ value: any[] }>(
       '/deviceManagement/deviceConfigurations',
-      'v1.0'
+      { apiVersion: 'v1.0' }
     );
 
     if (!response?.value) {
-      console.warn('[GRAPH API] No configuration profiles returned');
+      console.warn('[GRAPH API] No device configurations returned');
       return [];
     }
 
@@ -106,32 +122,33 @@ export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[
       description: profile.description,
       platforms: getPlatformFromOdataType(profile['@odata.type']),
       lastModifiedDateTime: profile.lastModifiedDateTime,
-      settings: [], // Settings loaded separately if needed
+      settings: [],
       createdDateTime: profile.createdDateTime,
       type: 'profile' as const,
+      profileType: 'deviceConfiguration' as const,
     }));
 
-    console.log(`[GRAPH API] Successfully loaded ${profiles.length} configuration profiles`);
+    console.log(`[GRAPH API] Loaded ${profiles.length} traditional device configurations`);
     return profiles;
   } catch (error) {
-    console.error('Failed to load configuration profiles:', error);
+    console.error('[GRAPH API] Failed to load device configurations:', error);
     throw error;
   }
 }
 
 /**
- * Loads configuration policies from Intune (Settings Catalog / Modern Management)
+ * Loads configuration profiles from Intune (Settings Catalog - Modern Approach)
  * Endpoint: GET /deviceManagement/configurationPolicies
  * API Version: beta (Settings Catalog is beta-only)
  * Requires scope: DeviceManagementConfiguration.Read.All
- * @returns Array of configuration profiles
+ * @returns Array of configuration policy profiles
  */
-export async function loadConfigurationPoliciesModern(): Promise<ConfigurationProfile[]> {
+export async function loadConfigurationPolicies(): Promise<ConfigurationProfile[]> {
   try {
-    console.log('[GRAPH API] Loading device configuration policies (Settings Catalog)...');
+    console.log('[GRAPH API] Loading configuration policies (Settings Catalog - beta)...');
     const response = await callGraphAPI<{ value: any[] }>(
       '/deviceManagement/configurationPolicies',
-      'beta'
+      { apiVersion: 'beta' }
     );
 
     if (!response?.value) {
@@ -146,15 +163,57 @@ export async function loadConfigurationPoliciesModern(): Promise<ConfigurationPr
       description: policy.description,
       platforms: getPlatformFromOdataType(policy['@odata.type']),
       lastModifiedDateTime: policy.lastModifiedDateTime,
-      settings: [], // Settings loaded separately if needed
+      settings: [],
       createdDateTime: policy.createdDateTime,
       type: 'profile' as const,
+      profileType: 'configurationPolicy' as const,
     }));
 
-    console.log(`[GRAPH API] Successfully loaded ${policies.length} configuration policies (Settings Catalog)`);
+    console.log(`[GRAPH API] Loaded ${policies.length} configuration policies (Settings Catalog)`);
     return policies;
   } catch (error) {
-    console.error('Failed to load configuration policies (Settings Catalog):', error);
+    console.error('[GRAPH API] Failed to load configuration policies:', error);
+    throw error;
+  }
+}
+
+/**
+ * Loads all configuration profiles from both v1.0 and beta endpoints
+ * Tries Settings Catalog (beta) first, falls back to traditional configs (v1.0)
+ * @returns Combined array of configuration profiles from both sources
+ */
+export async function loadAllConfigurationProfiles(): Promise<ConfigurationProfile[]> {
+  try {
+    console.log('[GRAPH API] Loading all configuration profiles with fallback strategy...');
+    let allProfiles: ConfigurationProfile[] = [];
+
+    // Try Settings Catalog (beta) first - modern approach
+    try {
+      console.log('[GRAPH API] Attempting Settings Catalog (beta)...');
+      const policies = await loadConfigurationPolicies();
+      allProfiles = [...policies];
+      console.log(`[GRAPH API] Settings Catalog returned ${policies.length} policies`);
+    } catch (betaError) {
+      console.warn('[GRAPH API] Settings Catalog (beta) failed, will try traditional configs:', betaError);
+    }
+
+    // Always load traditional configs (v1.0) to ensure complete data
+    try {
+      console.log('[GRAPH API] Loading traditional device configurations (v1.0)...');
+      const configs = await loadDeviceConfigurations();
+      allProfiles = [...allProfiles, ...configs];
+      console.log(`[GRAPH API] Traditional configs returned ${configs.length} profiles`);
+    } catch (v1Error) {
+      console.warn('[GRAPH API] Traditional device configurations (v1.0) failed:', v1Error);
+      if (allProfiles.length === 0) {
+        throw new Error('Failed to load both Settings Catalog and traditional configurations');
+      }
+    }
+
+    console.log(`[GRAPH API] Total configuration profiles loaded: ${allProfiles.length}`);
+    return allProfiles;
+  } catch (error) {
+    console.error('[GRAPH API] Failed to load all configuration profiles:', error);
     throw error;
   }
 }
@@ -171,7 +230,7 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
     console.log('[GRAPH API] Loading PowerShell scripts...');
     const response = await callGraphAPI<{ value: any[] }>(
       '/deviceManagement/deviceManagementScripts',
-      'v1.0'
+      { apiVersion: 'v1.0' }
     );
 
     if (!response?.value) {
@@ -179,22 +238,36 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
       return [];
     }
 
-    const scripts = response.value.map((script: any) => ({
-      id: script.id,
-      displayName: script.displayName || 'Unnamed Script',
-      description: script.description,
-      createdDateTime: script.createdDateTime,
-      lastModifiedDateTime: script.lastModifiedDateTime,
-      scriptContent: script.scriptContent || 'Script content not available',
-      executionContext: script.executionContext,
-      runAsAccount: script.runAsAccount,
-      type: 'script' as const,
-    }));
+    const scripts = response.value.map((script: any) => {
+      // Decode base64 scriptContent if present
+      let decodedContent = script.scriptContent || 'Script content not available';
+      if (script.scriptContent && typeof script.scriptContent === 'string') {
+        try {
+          // Try to decode as base64
+          decodedContent = atob(script.scriptContent);
+        } catch {
+          // If decode fails, use original content
+          decodedContent = script.scriptContent;
+        }
+      }
 
-    console.log(`[GRAPH API] Successfully loaded ${scripts.length} PowerShell scripts`);
+      return {
+        id: script.id,
+        displayName: script.displayName || 'Unnamed Script',
+        description: script.description,
+        createdDateTime: script.createdDateTime,
+        lastModifiedDateTime: script.lastModifiedDateTime,
+        scriptContent: decodedContent,
+        executionContext: script.executionContext,
+        runAsAccount: script.runAsAccount,
+        type: 'script' as const,
+      };
+    });
+
+    console.log(`[GRAPH API] Loaded ${scripts.length} PowerShell scripts`);
     return scripts;
   } catch (error) {
-    console.error('Failed to load PowerShell scripts:', error);
+    console.error('[GRAPH API] Failed to load PowerShell scripts:', error);
     throw error;
   }
 }
@@ -202,6 +275,7 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
 /**
  * Loads device compliance policies from Intune
  * Endpoint: GET /deviceManagement/deviceCompliancePolicies
+ * API Version: v1.0 (stable)
  * Requires scope: DeviceManagementConfiguration.Read.All
  * @returns Array of compliance policies
  */
@@ -209,7 +283,8 @@ export async function loadCompliancePolicies(): Promise<CompliancePolicy[]> {
   try {
     console.log('[GRAPH API] Loading compliance policies...');
     const response = await callGraphAPI<{ value: any[] }>(
-      '/deviceManagement/deviceCompliancePolicies'
+      '/deviceManagement/deviceCompliancePolicies',
+      { apiVersion: 'v1.0' }
     );
 
     if (!response?.value) {
@@ -227,10 +302,10 @@ export async function loadCompliancePolicies(): Promise<CompliancePolicy[]> {
       type: 'compliance' as const,
     }));
 
-    console.log(`[GRAPH API] Successfully loaded ${policies.length} compliance policies`);
+    console.log(`[GRAPH API] Loaded ${policies.length} compliance policies`);
     return policies;
   } catch (error) {
-    console.error('Failed to load compliance policies:', error);
+    console.error('[GRAPH API] Failed to load compliance policies:', error);
     throw error;
   }
 }
@@ -238,6 +313,7 @@ export async function loadCompliancePolicies(): Promise<CompliancePolicy[]> {
 /**
  * Loads mobile applications from Intune
  * Endpoint: GET /deviceAppManagement/mobileApps
+ * API Version: v1.0 (stable)
  * Requires scope: DeviceManagementApps.Read.All
  * @returns Array of mobile applications
  */
@@ -245,7 +321,8 @@ export async function loadApplications(): Promise<MobileApp[]> {
   try {
     console.log('[GRAPH API] Loading mobile applications...');
     const response = await callGraphAPI<{ value: any[] }>(
-      '/deviceAppManagement/mobileApps'
+      '/deviceAppManagement/mobileApps',
+      { apiVersion: 'v1.0' }
     );
 
     if (!response?.value) {
@@ -264,17 +341,17 @@ export async function loadApplications(): Promise<MobileApp[]> {
       type: 'app' as const,
     }));
 
-    console.log(`[GRAPH API] Successfully loaded ${apps.length} mobile applications`);
+    console.log(`[GRAPH API] Loaded ${apps.length} mobile applications`);
     return apps;
   } catch (error) {
-    console.error('Failed to load applications:', error);
+    console.error('[GRAPH API] Failed to load applications:', error);
     throw error;
   }
 }
 
 /**
  * Loads all Intune data in parallel with fallback strategy
- * Configuration Profiles: Tries Settings Catalog (beta) first, falls back to Traditional (v1.0)
+ * Configuration Profiles: Uses loadAllConfigurationProfiles() which combines Settings Catalog (beta) and Traditional (v1.0)
  * PowerShell Scripts: Uses v1.0 API
  * Compliance Policies: Uses v1.0 API
  * Applications: Uses v1.0 API
@@ -282,51 +359,39 @@ export async function loadApplications(): Promise<MobileApp[]> {
  */
 export async function loadAllData(): Promise<AllData> {
   try {
-    // Helper function to load configurations with fallback strategy
-    const loadConfigurations = async (): Promise<ConfigurationProfile[]> => {
-      try {
-        // Try Settings Catalog (beta) first - modern approach
-        console.log('[GRAPH API] Attempting to load configurations from Settings Catalog (beta)...');
-        return await loadConfigurationPoliciesModern();
-      } catch (error) {
-        console.warn('[GRAPH API] Settings Catalog failed, falling back to traditional device configurations (v1.0):', error);
-        try {
-          // Fallback to Traditional Device Configurations (v1.0)
-          return await loadConfigurationProfiles();
-        } catch (fallbackError) {
-          console.warn('[GRAPH API] Both configuration sources failed:', fallbackError);
-          return [];
-        }
-      }
-    };
+    console.log('[GRAPH API] Starting parallel data load from all endpoints...');
 
     // Load all data in parallel
     const [profiles, scripts, compliance, apps] = await Promise.all([
-      loadConfigurations(),
+      loadAllConfigurationProfiles().catch((error) => {
+        console.warn('[GRAPH API] Failed to load configuration profiles:', error);
+        return [];
+      }),
       loadPowerShellScripts().catch((error) => {
-        console.warn('Failed to load PowerShell scripts:', error);
+        console.warn('[GRAPH API] Failed to load PowerShell scripts:', error);
         return [];
       }),
       loadCompliancePolicies().catch((error) => {
-        console.warn('Failed to load compliance policies:', error);
+        console.warn('[GRAPH API] Failed to load compliance policies:', error);
         return [];
       }),
       loadApplications().catch((error) => {
-        console.warn('Failed to load applications:', error);
+        console.warn('[GRAPH API] Failed to load applications:', error);
         return [];
       }),
     ]);
 
-    console.log('Data loaded successfully:', {
+    console.log('[GRAPH API] Data load complete:', {
       profiles: profiles.length,
       scripts: scripts.length,
       compliance: compliance.length,
       apps: apps.length,
     });
+
     return { profiles, scripts, compliance, apps };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error loading data';
-    console.error('Failed to load Intune data:', errorMessage);
+    console.error('[GRAPH API] Failed to load Intune data:', errorMessage);
     throw new Error(`Failed to load Intune data: ${errorMessage}`);
   }
 }

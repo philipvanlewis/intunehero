@@ -25,6 +25,7 @@ export interface ConfigurationProfile {
   createdDateTime: string;
   settings?: ConfigurationSetting[];
   type: 'profile';
+  profileType?: 'deviceConfiguration' | 'configurationPolicy'; // Distinguishes v1.0 vs beta sources
 }
 
 export interface ConfigurationSetting {
