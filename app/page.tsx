@@ -143,6 +143,32 @@ export default function Page() {
     }
   }, []);
 
+  // Refresh data from Graph API
+  const handleRefreshData = useCallback(async () => {
+    try {
+      setAuthError('');
+      setIsLoadingData(true);
+      console.log('Refreshing Intune data from Microsoft Graph...');
+
+      const data = await loadAllData();
+      setAllData(data);
+
+      // Log individual endpoint status
+      console.log('Data refresh complete:', {
+        profiles: data.profiles.length,
+        scripts: data.scripts.length,
+        compliance: data.compliance.length,
+        apps: data.apps.length,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to refresh data';
+      setAuthError(`Data refresh failed: ${errorMessage}`);
+      console.error('Data refresh error:', errorMessage);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, []);
+
   const handleAutomateSetup = useCallback(async () => {
     setShowSetupProgress(true);
     setSetupError('');
@@ -427,6 +453,7 @@ export default function Page() {
               onDownloadJSON={handleDownloadJSON}
               onDownloadHTML={handleDownloadHTML}
               onDownloadZIP={handleDownloadZIP}
+              onRefresh={handleRefreshData}
               isLoading={isLoadingData}
             />
 

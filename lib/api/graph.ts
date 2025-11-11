@@ -25,13 +25,16 @@ async function callGraphAPI<T>(
   options: RequestInit = {}
 ): Promise<T> {
   try {
+    const fullUrl = `${GRAPH_API_BASE}${endpoint}`;
+    console.log(`[GRAPH API] Calling: ${fullUrl}`);
+
     const token = await acquireToken();
 
     if (!token) {
       throw new Error('No access token available. Please authenticate first.');
     }
 
-    const response = await fetch(`${GRAPH_API_BASE}${endpoint}`, {
+    const response = await fetch(fullUrl, {
       ...options,
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -39,6 +42,8 @@ async function callGraphAPI<T>(
         ...options.headers,
       },
     });
+
+    console.log(`[GRAPH API] Response status: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       let errorData: any = {};
@@ -48,20 +53,22 @@ async function callGraphAPI<T>(
         // Response is not JSON, continue with default error
       }
 
-      throw new Error(
-        `Graph API error: ${response.status} ${response.statusText}. ` +
-        `${errorData?.error?.message || 'Unknown error'}`
-      );
+      const errorMsg = `Graph API error: ${response.status} ${response.statusText}. ${errorData?.error?.message || 'Unknown error'}`;
+      console.error(`[GRAPH API] ${errorMsg}`);
+      throw new Error(errorMsg);
     }
 
     if (response.status === 204) {
+      console.log('[GRAPH API] No content response (204)');
       return null as T; // No content response
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log(`[GRAPH API] Response received`);
+    return data;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error calling Graph API';
-    console.error('Graph API error:', errorMessage);
+    console.error(`[GRAPH API] Error calling ${endpoint}:`, errorMessage);
     throw new Error(`Failed to call Graph API (${endpoint}): ${errorMessage}`);
   }
 }
@@ -74,13 +81,17 @@ async function callGraphAPI<T>(
  */
 export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[]> {
   try {
+    console.log('[GRAPH API] Loading configuration profiles...');
     const response = await callGraphAPI<{ value: any[] }>(
       '/deviceManagement/configurationPolicies'
     );
 
-    if (!response?.value) return [];
+    if (!response?.value) {
+      console.warn('[GRAPH API] No configuration profiles returned');
+      return [];
+    }
 
-    return response.value.map((profile: any) => ({
+    const profiles = response.value.map((profile: any) => ({
       id: profile.id,
       name: profile.name || profile.displayName || 'Unnamed',
       displayName: profile.displayName || profile.name || 'Unnamed',
@@ -91,6 +102,9 @@ export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[
       createdDateTime: profile.createdDateTime,
       type: 'profile' as const,
     }));
+
+    console.log(`[GRAPH API] Successfully loaded ${profiles.length} configuration profiles`);
+    return profiles;
   } catch (error) {
     console.error('Failed to load configuration profiles:', error);
     throw error;
@@ -105,13 +119,17 @@ export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[
  */
 export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
   try {
+    console.log('[GRAPH API] Loading PowerShell scripts...');
     const response = await callGraphAPI<{ value: any[] }>(
       '/deviceManagement/deviceManagementScripts'
     );
 
-    if (!response?.value) return [];
+    if (!response?.value) {
+      console.warn('[GRAPH API] No PowerShell scripts returned');
+      return [];
+    }
 
-    return response.value.map((script: any) => ({
+    const scripts = response.value.map((script: any) => ({
       id: script.id,
       displayName: script.displayName || 'Unnamed Script',
       description: script.description,
@@ -122,6 +140,9 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
       runAsAccount: script.runAsAccount,
       type: 'script' as const,
     }));
+
+    console.log(`[GRAPH API] Successfully loaded ${scripts.length} PowerShell scripts`);
+    return scripts;
   } catch (error) {
     console.error('Failed to load PowerShell scripts:', error);
     throw error;
@@ -136,13 +157,17 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
  */
 export async function loadCompliancePolicies(): Promise<CompliancePolicy[]> {
   try {
+    console.log('[GRAPH API] Loading compliance policies...');
     const response = await callGraphAPI<{ value: any[] }>(
       '/deviceManagement/deviceCompliancePolicies'
     );
 
-    if (!response?.value) return [];
+    if (!response?.value) {
+      console.warn('[GRAPH API] No compliance policies returned');
+      return [];
+    }
 
-    return response.value.map((policy: any) => ({
+    const policies = response.value.map((policy: any) => ({
       id: policy.id,
       displayName: policy.displayName || 'Unnamed Policy',
       description: policy.description,
@@ -151,6 +176,9 @@ export async function loadCompliancePolicies(): Promise<CompliancePolicy[]> {
       '@odata.type': policy['@odata.type'],
       type: 'compliance' as const,
     }));
+
+    console.log(`[GRAPH API] Successfully loaded ${policies.length} compliance policies`);
+    return policies;
   } catch (error) {
     console.error('Failed to load compliance policies:', error);
     throw error;
@@ -165,13 +193,17 @@ export async function loadCompliancePolicies(): Promise<CompliancePolicy[]> {
  */
 export async function loadApplications(): Promise<MobileApp[]> {
   try {
+    console.log('[GRAPH API] Loading mobile applications...');
     const response = await callGraphAPI<{ value: any[] }>(
       '/deviceAppManagement/mobileApps'
     );
 
-    if (!response?.value) return [];
+    if (!response?.value) {
+      console.warn('[GRAPH API] No mobile applications returned');
+      return [];
+    }
 
-    return response.value.map((app: any) => ({
+    const apps = response.value.map((app: any) => ({
       id: app.id,
       displayName: app.displayName || 'Unnamed App',
       description: app.description,
@@ -181,6 +213,9 @@ export async function loadApplications(): Promise<MobileApp[]> {
       '@odata.type': app['@odata.type'],
       type: 'app' as const,
     }));
+
+    console.log(`[GRAPH API] Successfully loaded ${apps.length} mobile applications`);
+    return apps;
   } catch (error) {
     console.error('Failed to load applications:', error);
     throw error;
