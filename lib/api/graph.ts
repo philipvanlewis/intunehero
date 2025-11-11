@@ -1,5 +1,5 @@
 // Microsoft Graph API Utilities
-// These are stubbed for now and should be wired with actual API calls
+// Real implementation with Microsoft Graph API
 
 import type {
   ConfigurationProfile,
@@ -9,6 +9,7 @@ import type {
   AllData,
 } from '../types';
 import { acquireToken } from '../auth/msal';
+import { getPlatformFromOdataType } from '../utils/filters';
 
 const GRAPH_API_BASE = process.env.NEXT_PUBLIC_GRAPH_API_BASE || 'https://graph.microsoft.com/v1.0';
 
@@ -24,36 +25,40 @@ async function callGraphAPI<T>(
   options: RequestInit = {}
 ): Promise<T> {
   try {
-    // TODO: Implement actual Graph API calls
-    // const token = await acquireToken();
-    // if (!token) {
-    //   throw new Error('No access token available. Please authenticate first.');
-    // }
-    // const response = await fetch(`${GRAPH_API_BASE}${endpoint}`, {
-    //   ...options,
-    //   headers: {
-    //     'Authorization': `Bearer ${token}`,
-    //     'Content-Type': 'application/json',
-    //     ...options.headers,
-    //   },
-    // });
-    //
-    // if (!response.ok) {
-    //   const errorData = await response.json().catch(() => ({}));
-    //   throw new Error(
-    //     `Graph API error: ${response.status} ${response.statusText}. ` +
-    //     `${errorData?.error?.message || 'Unknown error'}`
-    //   );
-    // }
-    //
-    // if (response.status === 204) {
-    //   return null as T; // No content response
-    // }
-    //
-    // return response.json();
+    const token = await acquireToken();
 
-    console.log('Graph API call - STUB:', { endpoint, method: options.method || 'GET' });
-    return {} as T;
+    if (!token) {
+      throw new Error('No access token available. Please authenticate first.');
+    }
+
+    const response = await fetch(`${GRAPH_API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      let errorData: any = {};
+      try {
+        errorData = await response.json();
+      } catch {
+        // Response is not JSON, continue with default error
+      }
+
+      throw new Error(
+        `Graph API error: ${response.status} ${response.statusText}. ` +
+        `${errorData?.error?.message || 'Unknown error'}`
+      );
+    }
+
+    if (response.status === 204) {
+      return null as T; // No content response
+    }
+
+    return response.json();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error calling Graph API';
     console.error('Graph API error:', errorMessage);
@@ -68,14 +73,28 @@ async function callGraphAPI<T>(
  * @returns Array of configuration profiles
  */
 export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[]> {
-  // TODO: Call /deviceManagement/configurationPolicies
-  // and load settings for each profile
-  // const profiles = await callGraphAPI<{ value: ConfigurationProfile[] }>(
-  //   '/deviceManagement/configurationPolicies'
-  // );
-  // return profiles.value || [];
-  console.log('Loading configuration profiles - STUB');
-  return [];
+  try {
+    const response = await callGraphAPI<{ value: any[] }>(
+      '/deviceManagement/configurationPolicies'
+    );
+
+    if (!response?.value) return [];
+
+    return response.value.map((profile: any) => ({
+      id: profile.id,
+      name: profile.name || profile.displayName || 'Unnamed',
+      displayName: profile.displayName || profile.name || 'Unnamed',
+      description: profile.description,
+      platforms: getPlatformFromOdataType(profile['@odata.type']),
+      lastModifiedDateTime: profile.modifiedDateTime,
+      settings: [], // Settings loaded separately if needed
+      createdDateTime: profile.createdDateTime,
+      type: 'profile' as const,
+    }));
+  } catch (error) {
+    console.error('Failed to load configuration profiles:', error);
+    throw error;
+  }
 }
 
 /**
@@ -85,13 +104,28 @@ export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[
  * @returns Array of PowerShell scripts
  */
 export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
-  // TODO: Call /deviceManagement/deviceManagementScripts
-  // const scripts = await callGraphAPI<{ value: PowerShellScript[] }>(
-  //   '/deviceManagement/deviceManagementScripts'
-  // );
-  // return scripts.value || [];
-  console.log('Loading PowerShell scripts - STUB');
-  return [];
+  try {
+    const response = await callGraphAPI<{ value: any[] }>(
+      '/deviceManagement/deviceManagementScripts'
+    );
+
+    if (!response?.value) return [];
+
+    return response.value.map((script: any) => ({
+      id: script.id,
+      displayName: script.displayName || 'Unnamed Script',
+      description: script.description,
+      createdDateTime: script.createdDateTime,
+      lastModifiedDateTime: script.lastModifiedDateTime,
+      scriptContent: script.scriptContent || 'Script content not available',
+      executionContext: script.executionContext,
+      runAsAccount: script.runAsAccount,
+      type: 'script' as const,
+    }));
+  } catch (error) {
+    console.error('Failed to load PowerShell scripts:', error);
+    throw error;
+  }
 }
 
 /**
@@ -101,13 +135,26 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
  * @returns Array of compliance policies
  */
 export async function loadCompliancePolicies(): Promise<CompliancePolicy[]> {
-  // TODO: Call /deviceManagement/deviceCompliancePolicies
-  // const policies = await callGraphAPI<{ value: CompliancePolicy[] }>(
-  //   '/deviceManagement/deviceCompliancePolicies'
-  // );
-  // return policies.value || [];
-  console.log('Loading compliance policies - STUB');
-  return [];
+  try {
+    const response = await callGraphAPI<{ value: any[] }>(
+      '/deviceManagement/deviceCompliancePolicies'
+    );
+
+    if (!response?.value) return [];
+
+    return response.value.map((policy: any) => ({
+      id: policy.id,
+      displayName: policy.displayName || 'Unnamed Policy',
+      description: policy.description,
+      lastModifiedDateTime: policy.lastModifiedDateTime || policy.modifiedDateTime,
+      createdDateTime: policy.createdDateTime,
+      '@odata.type': policy['@odata.type'],
+      type: 'compliance' as const,
+    }));
+  } catch (error) {
+    console.error('Failed to load compliance policies:', error);
+    throw error;
+  }
 }
 
 /**
@@ -117,13 +164,27 @@ export async function loadCompliancePolicies(): Promise<CompliancePolicy[]> {
  * @returns Array of mobile applications
  */
 export async function loadApplications(): Promise<MobileApp[]> {
-  // TODO: Call /deviceAppManagement/mobileApps
-  // const apps = await callGraphAPI<{ value: MobileApp[] }>(
-  //   '/deviceAppManagement/mobileApps'
-  // );
-  // return apps.value || [];
-  console.log('Loading applications - STUB');
-  return [];
+  try {
+    const response = await callGraphAPI<{ value: any[] }>(
+      '/deviceAppManagement/mobileApps'
+    );
+
+    if (!response?.value) return [];
+
+    return response.value.map((app: any) => ({
+      id: app.id,
+      displayName: app.displayName || 'Unnamed App',
+      description: app.description,
+      publisher: app.publisher,
+      publishedDateTime: app.publishedDateTime,
+      createdDateTime: app.createdDateTime,
+      '@odata.type': app['@odata.type'],
+      type: 'app' as const,
+    }));
+  } catch (error) {
+    console.error('Failed to load applications:', error);
+    throw error;
+  }
 }
 
 /**
@@ -133,22 +194,28 @@ export async function loadApplications(): Promise<MobileApp[]> {
  */
 export async function loadAllData(): Promise<AllData> {
   try {
-    // TODO: Load all data in parallel for better performance
-    // const [profiles, scripts, compliance, apps] = await Promise.all([
-    //   loadConfigurationProfiles(),
-    //   loadPowerShellScripts(),
-    //   loadCompliancePolicies(),
-    //   loadApplications(),
-    // ]);
-    // return { profiles, scripts, compliance, apps };
+    // Load all data in parallel for better performance
+    const [profiles, scripts, compliance, apps] = await Promise.all([
+      loadConfigurationProfiles().catch((error) => {
+        console.warn('Failed to load profiles:', error);
+        return [];
+      }),
+      loadPowerShellScripts().catch((error) => {
+        console.warn('Failed to load scripts:', error);
+        return [];
+      }),
+      loadCompliancePolicies().catch((error) => {
+        console.warn('Failed to load compliance policies:', error);
+        return [];
+      }),
+      loadApplications().catch((error) => {
+        console.warn('Failed to load applications:', error);
+        return [];
+      }),
+    ]);
 
-    console.log('Loading all data - STUB');
-    return {
-      profiles: [],
-      scripts: [],
-      compliance: [],
-      apps: [],
-    };
+    console.log('Data loaded successfully:', { profiles: profiles.length, scripts: scripts.length, compliance: compliance.length, apps: apps.length });
+    return { profiles, scripts, compliance, apps };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error loading data';
     console.error('Failed to load Intune data:', errorMessage);

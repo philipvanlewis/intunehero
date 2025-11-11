@@ -1,6 +1,7 @@
 // MSAL Configuration and Authentication Utilities
-// These are stubbed for now and should be wired up with actual MSAL implementation
+// Real implementation with @azure/msal-browser
 
+import * as msal from '@azure/msal-browser';
 import type { AuthAccount, TokenResponse } from '../types';
 
 /**
@@ -34,6 +35,20 @@ export function createMsalConfig() {
 
 const msalConfig = createMsalConfig();
 
+// Store MSAL instance reference
+let msalInstance: msal.PublicClientApplication | null = null;
+
+/**
+ * Gets or creates the MSAL instance
+ * @throws Error if MSAL is not initialized
+ */
+function getMsalInstance(): msal.PublicClientApplication {
+  if (!msalInstance) {
+    throw new Error('MSAL not initialized. Call initializeMSAL first.');
+  }
+  return msalInstance;
+}
+
 const requiredScopes = [
   'DeviceManagementConfiguration.Read.All',
   'DeviceManagementApps.Read.All',
@@ -58,19 +73,22 @@ export async function initializeMSAL(clientId: string): Promise<boolean> {
   }
 
   try {
-    // TODO: Initialize actual MSAL instance with @azure/msal-browser
-    // import * as msal from '@azure/msal-browser';
-    // const msalInstance = new msal.PublicClientApplication({
-    //   ...msalConfig,
-    //   auth: { ...msalConfig.auth, clientId }
-    // });
-    // await msalInstance.initialize();
-    // Store instance reference for later use
+    // Create MSAL instance with provided clientId
+    const config = createMsalConfig();
+    msalInstance = new msal.PublicClientApplication({
+      ...config,
+      auth: { ...config.auth, clientId }
+    });
+
+    // Initialize MSAL
+    await msalInstance.initialize();
 
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('msalClientId', clientId);
       sessionStorage.setItem('msalInitialized', 'true');
     }
+
+    console.log('MSAL initialized successfully');
     return true;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error during MSAL initialization';
@@ -85,20 +103,13 @@ export async function initializeMSAL(clientId: string): Promise<boolean> {
  */
 export async function loginWithPopup(): Promise<AuthAccount | null> {
   try {
-    const clientId = msalConfig.auth.clientId;
-    if (!clientId) {
-      throw new Error('MSAL not initialized: clientId is missing. Check NEXT_PUBLIC_CLIENT_ID environment variable.');
-    }
+    const instance = getMsalInstance();
+    const loginResponse = await instance.loginPopup({
+      scopes: requiredScopes,
+    });
 
-    // TODO: Implement actual MSAL login popup
-    // const msalInstance = getMsalInstance(); // Get stored instance
-    // const loginResponse = await msalInstance.loginPopup({
-    //   scopes: requiredScopes,
-    // });
-    // return loginResponse.account;
-
-    console.log('Login popup - STUB - In production, this would show Azure AD login dialog');
-    return null;
+    console.log('User logged in:', loginResponse.account?.username);
+    return loginResponse.account || null;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Login failed';
     console.error('Login error:', errorMessage);
@@ -112,27 +123,24 @@ export async function loginWithPopup(): Promise<AuthAccount | null> {
  */
 export async function loginForAutomation(): Promise<{ token: string; account: AuthAccount } | null> {
   try {
-    const clientId = msalConfig.auth.clientId;
-    if (!clientId) {
-      throw new Error('MSAL not initialized: clientId is missing. Check NEXT_PUBLIC_CLIENT_ID environment variable.');
+    const instance = getMsalInstance();
+    const loginResponse = await instance.loginPopup({
+      scopes: automationScopes,
+    });
+
+    if (!loginResponse.account) {
+      throw new Error('No account found after login');
     }
 
-    // TODO: Implement login with automation scopes
-    // const msalInstance = getMsalInstance();
-    // const loginResponse = await msalInstance.loginPopup({
-    //   scopes: automationScopes,
-    // });
-    // const tokenResponse = await msalInstance.acquireTokenSilent({
-    //   scopes: automationScopes,
-    //   account: loginResponse.account,
-    // });
-    // return {
-    //   token: tokenResponse.accessToken,
-    //   account: loginResponse.account,
-    // };
+    const tokenResponse = await instance.acquireTokenSilent({
+      scopes: automationScopes,
+      account: loginResponse.account,
+    });
 
-    console.log('Automation login - STUB - In production, this would authenticate for app registration');
-    return null;
+    return {
+      token: tokenResponse.accessToken,
+      account: loginResponse.account,
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Automation login failed';
     console.error('Automation login error:', errorMessage);
@@ -149,9 +157,11 @@ export async function loginForAutomation(): Promise<{ token: string; account: Au
  */
 export async function acquireToken(additionalScopes?: string[]): Promise<string> {
   try {
-    const clientId = msalConfig.auth.clientId;
-    if (!clientId) {
-      throw new Error('MSAL not initialized: clientId is missing. Check NEXT_PUBLIC_CLIENT_ID environment variable.');
+    const instance = getMsalInstance();
+    const accounts = instance.getAllAccounts();
+
+    if (accounts.length === 0) {
+      throw new Error('No user account found. Please login first.');
     }
 
     const scopes = [...requiredScopes];
@@ -159,23 +169,24 @@ export async function acquireToken(additionalScopes?: string[]): Promise<string>
       scopes.push(...additionalScopes);
     }
 
-    // TODO: Implement token acquisition
-    // const msalInstance = getMsalInstance();
-    // const accounts = msalInstance.getAllAccounts();
-    // if (accounts.length === 0) {
-    //   throw new Error('No user account found. Please login first.');
-    // }
-    // const tokenResponse = await msalInstance.acquireTokenSilent({
-    //   scopes,
-    //   account: accounts[0],
-    // }).catch(async () => {
-    //   // Fallback to interactive login if silent acquisition fails
-    //   return msalInstance.acquireTokenPopup({ scopes });
-    // });
-    // return tokenResponse.accessToken;
+    try {
+      // Try silent token acquisition first
+      const silentRequest: msal.SilentRequest = {
+        scopes,
+        account: accounts[0],
+      };
 
-    console.log('Acquire token - STUB', { scopes: scopes.length });
-    return '';
+      const tokenResponse = await instance.acquireTokenSilent(silentRequest);
+      return tokenResponse.accessToken;
+    } catch (silentError) {
+      // Fallback to interactive login if silent acquisition fails
+      console.log('Silent token acquisition failed, falling back to popup...');
+      const popupRequest: msal.PopupRequest = {
+        scopes,
+      };
+      const tokenResponse = await instance.acquireTokenPopup(popupRequest);
+      return tokenResponse.accessToken;
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Token acquisition failed';
     console.error('Token acquisition error:', errorMessage);
@@ -188,25 +199,31 @@ export async function acquireToken(additionalScopes?: string[]): Promise<string>
  */
 export async function logoutUser(): Promise<void> {
   try {
-    // TODO: Implement actual MSAL logout
-    // const msalInstance = getMsalInstance();
-    // const accounts = msalInstance.getAllAccounts();
-    // if (accounts.length > 0) {
-    //   await msalInstance.logoutPopup({
-    //     account: accounts[0],
-    //     mainWindowRedirectUri: msalConfig.auth.redirectUri,
-    //   });
-    // }
+    const instance = getMsalInstance();
+    const accounts = instance.getAllAccounts();
+
+    if (accounts.length > 0) {
+      await instance.logoutPopup({
+        account: accounts[0],
+        mainWindowRedirectUri: msalConfig.auth.redirectUri,
+      });
+    }
 
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('msalClientId');
       sessionStorage.removeItem('msalInitialized');
     }
+
+    console.log('User logged out successfully');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Logout failed';
     console.error('Logout error:', errorMessage);
-    // Don't throw on logout errors, just log them
-    console.warn(`Logout incomplete, but clearing local session data: ${errorMessage}`);
+    // Clear local session data even if MSAL logout fails
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('msalClientId');
+      sessionStorage.removeItem('msalInitialized');
+    }
+    console.warn(`Logout incomplete, but cleared local session data: ${errorMessage}`);
   }
 }
 

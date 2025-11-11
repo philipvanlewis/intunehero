@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import AdminWarning from '@/components/setup/AdminWarning';
@@ -16,7 +16,11 @@ import Card from '@/components/ui/Card';
 import {
   saveClientId,
   getStoredClientId,
+  initializeMSAL,
+  loginWithPopup,
+  logoutUser,
 } from '@/lib/auth/msal';
+import { loadAllData } from '@/lib/api/graph';
 import { downloadJSON, downloadHTML, downloadZIP, generateHTMLReport } from '@/lib/utils/exports';
 import { filterItems } from '@/lib/utils/filters';
 import type { AllData, ResourceItem, ExportData } from '@/lib/types';
@@ -26,6 +30,8 @@ export default function Page() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<string>('');
   const [clientId, setClientId] = useState<string>(getStoredClientId() || '');
+  const [authError, setAuthError] = useState<string>('');
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Setup State
   const [setupProgress, setSetupProgress] = useState(0);
@@ -54,6 +60,27 @@ export default function Page() {
   const [modalItem, setModalItem] = useState<ResourceItem | undefined>();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Initialize MSAL on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const clientIdToUse = clientId || process.env.NEXT_PUBLIC_CLIENT_ID;
+        if (clientIdToUse) {
+          await initializeMSAL(clientIdToUse);
+          setIsInitialized(true);
+        } else {
+          setAuthError('No Client ID configured. Please set NEXT_PUBLIC_CLIENT_ID environment variable.');
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize authentication';
+        setAuthError(errorMessage);
+        console.error('Auth initialization error:', errorMessage);
+      }
+    };
+
+    initAuth();
+  }, [clientId]);
+
   // Handlers
   const handleClientIdChange = useCallback((value: string) => {
     setClientId(value);
@@ -62,19 +89,58 @@ export default function Page() {
     }
   }, []);
 
-  const handleLogin = useCallback(() => {
-    // TODO: Wire up actual MSAL login with Azure AD credentials
-    // For now, show message that authentication is configured
-    setCurrentUser('Azure AD User');
-    setIsAuthenticated(true);
-    // Demo data removed - will use real Graph API when wired up
+  const handleLogin = useCallback(async () => {
+    try {
+      setAuthError('');
+      setIsLoadingData(true);
+
+      // Perform login
+      const account = await loginWithPopup();
+
+      if (account) {
+        setCurrentUser(account.name || account.username || 'Azure AD User');
+        setIsAuthenticated(true);
+
+        // Load data after successful authentication
+        try {
+          const data = await loadAllData();
+          setAllData(data);
+          console.log('Data loaded successfully');
+        } catch (dataError) {
+          const errorMessage = dataError instanceof Error ? dataError.message : 'Failed to load data';
+          setAuthError(`Logged in but failed to load data: ${errorMessage}`);
+          console.error('Data loading error:', errorMessage);
+          // Keep user authenticated even if data loading fails
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      setAuthError(errorMessage);
+      console.error('Login error:', errorMessage);
+    } finally {
+      setIsLoadingData(false);
+    }
   }, []);
 
-  const handleLogout = useCallback(() => {
-    setIsAuthenticated(false);
-    setCurrentUser('');
-    setAllData({ profiles: [], scripts: [], compliance: [], apps: [] });
-    setSelectedItems(new Set());
+  const handleLogout = useCallback(async () => {
+    try {
+      setAuthError('');
+      await logoutUser();
+      setIsAuthenticated(false);
+      setCurrentUser('');
+      setAllData({ profiles: [], scripts: [], compliance: [], apps: [] });
+      setSelectedItems(new Set());
+      console.log('User logged out successfully');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Logout failed';
+      setAuthError(errorMessage);
+      console.error('Logout error:', errorMessage);
+      // Clear local state even if logout fails
+      setIsAuthenticated(false);
+      setCurrentUser('');
+      setAllData({ profiles: [], scripts: [], compliance: [], apps: [] });
+      setSelectedItems(new Set());
+    }
   }, []);
 
   const handleAutomateSetup = useCallback(async () => {
@@ -248,6 +314,38 @@ export default function Page() {
 
             {/* Main Content */}
             <div className="lg:col-span-3 space-y-6">
+              {/* Auth Error Display */}
+              {authError && (
+                <Card padding="lg" className="border-l-4 border-red-500 bg-red-50">
+                  <div className="flex gap-3">
+                    <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-red-800 font-semibold">Authentication Error</p>
+                      <p className="text-red-700 text-sm mt-1">{authError}</p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Loading Indicator */}
+              {isLoadingData && (
+                <Card padding="lg" className="bg-blue-50 border-l-4 border-blue-500">
+                  <div className="flex gap-3">
+                    <div className="animate-spin">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-blue-800 font-semibold">Loading Data</p>
+                      <p className="text-blue-700 text-sm">Fetching your Intune configuration from Microsoft Graph...</p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
               {/* Admin Warning */}
               <AdminWarning />
 
