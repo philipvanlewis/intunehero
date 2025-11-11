@@ -3,8 +3,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
-import AdminWarning from '@/components/setup/AdminWarning';
-import SetupGuide from '@/components/setup/SetupGuide';
 import ClientIdInput from '@/components/setup/ClientIdInput';
 import Tabs from '@/components/dashboard/Tabs';
 import SearchFilterBar from '@/components/dashboard/SearchFilterBar';
@@ -318,12 +316,6 @@ export default function Page() {
                   </div>
                 </Card>
               )}
-
-              {/* Admin Warning */}
-              <AdminWarning />
-
-              {/* Setup Guide */}
-              <SetupGuide />
 
               {/* Client ID Input */}
               <ClientIdInput
