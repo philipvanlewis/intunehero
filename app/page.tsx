@@ -4,8 +4,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import AdminWarning from '@/components/setup/AdminWarning';
-import AutomatedSetup from '@/components/setup/AutomatedSetup';
-import ManualSetupAccordion from '@/components/setup/ManualSetupAccordion';
+import SetupGuide from '@/components/setup/SetupGuide';
 import ClientIdInput from '@/components/setup/ClientIdInput';
 import Tabs from '@/components/dashboard/Tabs';
 import SearchFilterBar from '@/components/dashboard/SearchFilterBar';
@@ -33,13 +32,6 @@ export default function Page() {
   const [authError, setAuthError] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Setup State
-  const [setupProgress, setSetupProgress] = useState(0);
-  const [setupStep, setSetupStep] = useState(0);
-  const [showSetupProgress, setShowSetupProgress] = useState(false);
-  const [setupError, setSetupError] = useState<string>('');
-  const [generatedClientId, setGeneratedClientId] = useState<string>('');
-  const [setupSuccess, setSetupSuccess] = useState(false);
 
   // Dashboard State
   const [allData, setAllData] = useState<AllData>({
@@ -169,51 +161,6 @@ export default function Page() {
     }
   }, []);
 
-  const handleAutomateSetup = useCallback(async () => {
-    setShowSetupProgress(true);
-    setSetupError('');
-    setSetupProgress(0);
-    setSetupStep(0);
-
-    try {
-      // Step 1: Authenticate
-      setSetupStep(1);
-      setSetupProgress(25);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Step 2: Create App
-      setSetupStep(2);
-      setSetupProgress(50);
-      const mockClientId = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';
-      setGeneratedClientId(mockClientId);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Step 3: Add Permissions
-      setSetupStep(3);
-      setSetupProgress(75);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Step 4: Grant Consent
-      setSetupStep(4);
-      setSetupProgress(100);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      setSetupSuccess(true);
-    } catch (error) {
-      setSetupError(error instanceof Error ? error.message : 'Setup failed');
-      setShowSetupProgress(false);
-    }
-  }, []);
-
-  const handleUseGeneratedClientId = useCallback(() => {
-    setClientId(generatedClientId);
-    saveClientId(generatedClientId);
-    setSetupSuccess(false);
-    setShowSetupProgress(false);
-    setSetupProgress(0);
-    // Auto-login
-    handleLogin();
-  }, [generatedClientId, handleLogin]);
 
   // TODO: Wire up real Graph API data loading
   // const loadDemoData = async () => {
@@ -375,48 +322,23 @@ export default function Page() {
               {/* Admin Warning */}
               <AdminWarning />
 
-              {/* Automated Setup */}
-              <AutomatedSetup
-                onStartSetup={handleAutomateSetup}
-                isLoading={showSetupProgress && setupProgress < 100}
-                error={setupError}
-                progress={setupProgress}
-                currentStep={setupStep}
-                showProgress={showSetupProgress}
-              />
-
-              {/* Success State */}
-              {setupSuccess && (
-                <ClientIdInput
-                  value={generatedClientId}
-                  onChange={() => {}}
-                  generatedClientId={generatedClientId}
-                  onUseGenerated={handleUseGeneratedClientId}
-                  isSuccess={true}
-                />
-              )}
-
-              {/* Manual Setup */}
-              <div id="manual-setup">
-                <ManualSetupAccordion />
-              </div>
+              {/* Setup Guide */}
+              <SetupGuide />
 
               {/* Client ID Input */}
-              {!setupSuccess && (
-                <ClientIdInput
-                  value={clientId}
-                  onChange={handleClientIdChange}
-                />
-              )}
+              <ClientIdInput
+                value={clientId}
+                onChange={handleClientIdChange}
+              />
 
               {/* Login Button */}
-              {clientId && !setupSuccess && (
+              {clientId && (
                 <Card padding="lg" className="text-center">
                   <button
                     onClick={handleLogin}
                     className="px-6 py-3 bg-brand-primary text-white font-semibold rounded-lg hover:bg-brand-dark transition-colors"
                   >
-                    Continue with Client ID
+                    Sign In
                   </button>
                 </Card>
               )}
