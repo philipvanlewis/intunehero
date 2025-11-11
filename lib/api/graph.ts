@@ -75,7 +75,7 @@ async function callGraphAPI<T>(
 
 /**
  * Loads device configuration profiles from Intune
- * Endpoint: GET /deviceManagement/configurationPolicies
+ * Endpoint: GET /deviceManagement/configurationProfiles
  * Requires scope: DeviceManagementConfiguration.Read.All
  * @returns Array of configuration profiles
  */
@@ -83,7 +83,7 @@ export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[
   try {
     console.log('[GRAPH API] Loading configuration profiles...');
     const response = await callGraphAPI<{ value: any[] }>(
-      '/deviceManagement/configurationPolicies'
+      '/deviceManagement/configurationProfiles'
     );
 
     if (!response?.value) {
@@ -113,7 +113,7 @@ export async function loadConfigurationProfiles(): Promise<ConfigurationProfile[
 
 /**
  * Loads PowerShell scripts from Intune
- * Endpoint: GET /deviceManagement/deviceManagementScripts
+ * Endpoint: GET /deviceManagement/scripts
  * Requires scope: DeviceManagementConfiguration.Read.All
  * @returns Array of PowerShell scripts
  */
@@ -121,7 +121,7 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
   try {
     console.log('[GRAPH API] Loading PowerShell scripts...');
     const response = await callGraphAPI<{ value: any[] }>(
-      '/deviceManagement/deviceManagementScripts'
+      '/deviceManagement/scripts'
     );
 
     if (!response?.value) {
