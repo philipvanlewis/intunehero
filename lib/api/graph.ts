@@ -161,7 +161,8 @@ export async function loadConfigurationPolicies(): Promise<ConfigurationProfile[
       name: policy.name || 'Unnamed',
       displayName: policy.name || 'Unnamed',
       description: policy.description,
-      platforms: getPlatformFromOdataType(policy['@odata.type']),
+      // Settings Catalog doesn't have @odata.type at root level, use a safe default
+      platforms: policy['@odata.type'] ? getPlatformFromOdataType(policy['@odata.type']) : 'Unknown',
       lastModifiedDateTime: policy.lastModifiedDateTime,
       settings: [],
       createdDateTime: policy.createdDateTime,
@@ -220,7 +221,7 @@ export async function loadAllConfigurationProfiles(): Promise<ConfigurationProfi
 
 /**
  * Loads PowerShell scripts from Intune
- * Endpoint: GET /deviceManagement/deviceManagementScripts
+ * Endpoint: GET /deviceManagement/scripts (tries multiple endpoints with fallback)
  * API Version: v1.0 (stable)
  * Requires scope: DeviceManagementConfiguration.Read.All
  * @returns Array of PowerShell scripts
@@ -228,10 +229,34 @@ export async function loadAllConfigurationProfiles(): Promise<ConfigurationProfi
 export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
   try {
     console.log('[GRAPH API] Loading PowerShell scripts...');
-    const response = await callGraphAPI<{ value: any[] }>(
-      '/deviceManagement/deviceManagementScripts',
-      { apiVersion: 'v1.0' }
-    );
+    let response: { value: any[] } | null = null;
+    let lastError: Error | null = null;
+
+    // Try primary endpoint first
+    try {
+      console.log('[GRAPH API] Attempting /deviceManagement/scripts...');
+      response = await callGraphAPI<{ value: any[] }>(
+        '/deviceManagement/scripts',
+        { apiVersion: 'v1.0' }
+      );
+    } catch (error) {
+      lastError = error as Error;
+      console.warn('[GRAPH API] /deviceManagement/scripts failed, trying alternative endpoints...', error);
+
+      // Try alternative endpoint
+      try {
+        console.log('[GRAPH API] Attempting /deviceManagement/deviceManagementScripts...');
+        response = await callGraphAPI<{ value: any[] }>(
+          '/deviceManagement/deviceManagementScripts',
+          { apiVersion: 'v1.0' }
+        );
+      } catch (altError) {
+        console.warn('[GRAPH API] /deviceManagement/deviceManagementScripts also failed:', altError);
+        // If both endpoints fail, return empty array (PowerShell scripts not available in this tenant)
+        console.log('[GRAPH API] PowerShell scripts endpoint not available in this tenant');
+        return [];
+      }
+    }
 
     if (!response?.value) {
       console.warn('[GRAPH API] No PowerShell scripts returned');
