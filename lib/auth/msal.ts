@@ -203,9 +203,14 @@ export async function logoutUser(): Promise<void> {
     const accounts = instance.getAllAccounts();
 
     if (accounts.length > 0) {
+      // Use the home page as redirect URI for post-logout, not the auth callback
+      const homePageUri = typeof window !== 'undefined'
+        ? `${window.location.origin}/`
+        : msalConfig.auth.redirectUri;
+
       await instance.logoutPopup({
         account: accounts[0],
-        mainWindowRedirectUri: msalConfig.auth.redirectUri,
+        mainWindowRedirectUri: homePageUri,
       });
     }
 
