@@ -221,45 +221,66 @@ export async function loadAllConfigurationProfiles(): Promise<ConfigurationProfi
 
 /**
  * Loads PowerShell scripts from Intune
- * Endpoint: GET /deviceManagement/scripts (tries multiple endpoints with fallback)
- * API Version: v1.0 (stable)
+ * Endpoint: GET /deviceManagement/deviceManagementScripts
+ * Tries both v1.0 and beta API versions
  * Requires scope: DeviceManagementConfiguration.Read.All
  * @returns Array of PowerShell scripts
  */
 export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
   try {
-    console.log('[GRAPH API] Loading PowerShell scripts...');
+    console.log('[GRAPH API] Loading PowerShell scripts (Platform Scripts)...');
     let response: { value: any[] } | null = null;
-    let lastError: Error | null = null;
 
-    // Try primary endpoint first
+    // Try v1.0 first
     try {
-      console.log('[GRAPH API] Attempting /deviceManagement/scripts...');
+      console.log('[GRAPH API] Attempting /deviceManagement/deviceManagementScripts (v1.0)...');
       response = await callGraphAPI<{ value: any[] }>(
-        '/deviceManagement/scripts',
+        '/deviceManagement/deviceManagementScripts',
         { apiVersion: 'v1.0' }
       );
-    } catch (error) {
-      lastError = error as Error;
-      console.warn('[GRAPH API] /deviceManagement/scripts failed, trying alternative endpoints...', error);
+      console.log('[GRAPH API] v1.0 endpoint succeeded');
+    } catch (v1Error: any) {
+      console.warn('[GRAPH API] v1.0 endpoint failed:', {
+        message: v1Error?.message,
+        status: v1Error?.status,
+      });
 
-      // Try alternative endpoint
+      // Try beta endpoint as fallback
       try {
-        console.log('[GRAPH API] Attempting /deviceManagement/deviceManagementScripts...');
+        console.log('[GRAPH API] Attempting /deviceManagement/deviceManagementScripts (beta)...');
         response = await callGraphAPI<{ value: any[] }>(
           '/deviceManagement/deviceManagementScripts',
-          { apiVersion: 'v1.0' }
+          { apiVersion: 'beta' }
         );
-      } catch (altError) {
-        console.warn('[GRAPH API] /deviceManagement/deviceManagementScripts also failed:', altError);
-        // If both endpoints fail, return empty array (PowerShell scripts not available in this tenant)
-        console.log('[GRAPH API] PowerShell scripts endpoint not available in this tenant');
-        return [];
+        console.log('[GRAPH API] beta endpoint succeeded');
+      } catch (betaError: any) {
+        console.warn('[GRAPH API] beta endpoint failed:', {
+          message: betaError?.message,
+          status: betaError?.status,
+        });
+
+        // Try alternative endpoint /deviceManagement/scripts (legacy)
+        try {
+          console.log('[GRAPH API] Attempting /deviceManagement/scripts (v1.0)...');
+          response = await callGraphAPI<{ value: any[] }>(
+            '/deviceManagement/scripts',
+            { apiVersion: 'v1.0' }
+          );
+          console.log('[GRAPH API] /deviceManagement/scripts endpoint succeeded');
+        } catch (legacyError: any) {
+          console.warn('[GRAPH API] All PowerShell script endpoints failed:', {
+            v1Error: v1Error?.message,
+            betaError: betaError?.message,
+            legacyError: legacyError?.message,
+          });
+          console.log('[GRAPH API] PowerShell scripts not available in this tenant');
+          return [];
+        }
       }
     }
 
     if (!response?.value) {
-      console.warn('[GRAPH API] No PowerShell scripts returned');
+      console.warn('[GRAPH API] PowerShell scripts response has no value array');
       return [];
     }
 
@@ -289,11 +310,12 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
       };
     });
 
-    console.log(`[GRAPH API] Loaded ${scripts.length} PowerShell scripts`);
+    console.log(`[GRAPH API] Successfully loaded ${scripts.length} PowerShell scripts`);
     return scripts;
   } catch (error) {
-    console.error('[GRAPH API] Failed to load PowerShell scripts:', error);
-    throw error;
+    console.error('[GRAPH API] Unexpected error loading PowerShell scripts:', error);
+    // Return empty array instead of throwing to allow other data to load
+    return [];
   }
 }
 
