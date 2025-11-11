@@ -63,11 +63,12 @@ export default function Page() {
   }, []);
 
   const handleLogin = useCallback(() => {
-    // TODO: Wire up actual MSAL login
-    setCurrentUser('user@example.com');
+    // TODO: Wire up actual MSAL login with Azure AD credentials
+    // For now, show message that authentication is configured
+    setCurrentUser('Azure AD User');
     setIsAuthenticated(true);
-    loadDemoData();
-  }, [loadDemoData]);
+    // Demo data removed - will use real Graph API when wired up
+  }, []);
 
   const handleLogout = useCallback(() => {
     setIsAuthenticated(false);
@@ -122,12 +123,13 @@ export default function Page() {
     handleLogin();
   }, [generatedClientId, handleLogin]);
 
-  const loadDemoData = useCallback(() => {
-    setIsLoadingData(true);
-    // Simulate loading delay
-    setTimeout(() => {
-      // TODO: Replace with actual loadAllData() from @/lib/api/graph
-      setAllData({
+  // Demo data removed - will use real Graph API when wired up
+  // const loadDemoData = useCallback(() => {
+  //   setIsLoadingData(true);
+  //   // Simulate loading delay
+  //   setTimeout(() => {
+  //     // TODO: Replace with actual loadAllData() from @/lib/api/graph
+  //     setAllData({
         profiles: [
           {
             id: '1',
@@ -191,6 +193,7 @@ export default function Page() {
       setIsLoadingData(false);
     }, 1500);
   }, []);
+  // */
 
   const handleSelectItem = useCallback(
     (id: string, type: string, checked: boolean) => {
