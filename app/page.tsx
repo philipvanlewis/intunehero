@@ -123,77 +123,10 @@ export default function Page() {
     handleLogin();
   }, [generatedClientId, handleLogin]);
 
-  // Demo data removed - will use real Graph API when wired up
-  // const loadDemoData = useCallback(() => {
-  //   setIsLoadingData(true);
-  //   // Simulate loading delay
-  //   setTimeout(() => {
-  //     // TODO: Replace with actual loadAllData() from @/lib/api/graph
-  //     setAllData({
-        profiles: [
-          {
-            id: '1',
-            name: 'Windows 11 Security Baseline',
-            displayName: 'Windows 11 Security Baseline',
-            description: 'Enterprise security configuration for Windows 11 devices',
-            platforms: 'windows10',
-            technologies: 'Microsoft Intune',
-            lastModifiedDateTime: new Date().toISOString(),
-            createdDateTime: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-            settings: [],
-            type: 'profile',
-          },
-          {
-            id: '2',
-            name: 'iOS Device Configuration',
-            displayName: 'iOS Device Configuration',
-            description: 'Basic iOS device management settings',
-            platforms: 'iOS',
-            technologies: 'Apple MDM',
-            lastModifiedDateTime: new Date().toISOString(),
-            createdDateTime: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-            settings: [],
-            type: 'profile',
-          },
-        ],
-        scripts: [
-          {
-            id: 's1',
-            displayName: 'Update Windows Defender Definitions',
-            description: 'Automatically updates Windows Defender signatures',
-            createdDateTime: new Date().toISOString(),
-            executionContext: 'System',
-            type: 'script',
-          },
-        ],
-        compliance: [
-          {
-            id: 'c1',
-            displayName: 'Windows 10 Compliance Policy',
-            description: 'Ensures Windows 10 devices meet compliance requirements',
-            lastModifiedDateTime: new Date().toISOString(),
-            createdDateTime: new Date().toISOString(),
-            '@odata.type': 'microsoft.graph.windowsCompliancePolicy',
-            type: 'compliance',
-          },
-        ],
-        apps: [
-          {
-            id: 'a1',
-            displayName: 'Microsoft Office 365',
-            description: 'Productivity suite for enterprise',
-            publisher: 'Microsoft',
-            publishedDateTime: new Date().toISOString(),
-            createdDateTime: new Date().toISOString(),
-            '@odata.type': 'microsoft.graph.webApp',
-            type: 'app',
-          },
-        ],
-      });
-      setIsLoadingData(false);
-    }, 1500);
-  }, []);
-  // */
+  // TODO: Wire up real Graph API data loading
+  // const loadDemoData = async () => {
+  //   console.log('Demo mode disabled - waiting for authentication implementation');
+  // };
 
   const handleSelectItem = useCallback(
     (id: string, type: string, checked: boolean) => {
@@ -273,12 +206,13 @@ export default function Page() {
 
     selectedItems.forEach((key) => {
       const [type, id] = key.split('-');
-      const collectionName = type === 'profile' ? 'profiles' : type + 's';
-      const item = allData[collectionName as keyof AllData]?.find(
+      const collectionName = (type === 'profile' ? 'profiles' : type + 's') as keyof AllData;
+      const item = allData[collectionName]?.find(
         (i: any) => i.id === id
       );
       if (item) {
-        data[collectionName as keyof ExportData].push(item as any);
+        const dataKey = collectionName as keyof ExportData;
+        (data[dataKey] as any[]).push(item as any);
       }
     });
 
