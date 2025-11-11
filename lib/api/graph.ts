@@ -224,21 +224,14 @@ export async function loadApplications(): Promise<MobileApp[]> {
 
 /**
  * Loads all Intune data in parallel
- * Combines profiles, scripts, compliance policies, and applications
+ * Currently loads Compliance Policies and Applications only
+ * Configuration Profiles and PowerShell Scripts endpoints are not available in this tenant
  * @returns Object containing all loaded data
  */
 export async function loadAllData(): Promise<AllData> {
   try {
-    // Load all data in parallel for better performance
-    const [profiles, scripts, compliance, apps] = await Promise.all([
-      loadConfigurationProfiles().catch((error) => {
-        console.warn('Failed to load profiles:', error);
-        return [];
-      }),
-      loadPowerShellScripts().catch((error) => {
-        console.warn('Failed to load scripts:', error);
-        return [];
-      }),
+    // Load only confirmed working endpoints
+    const [compliance, apps] = await Promise.all([
       loadCompliancePolicies().catch((error) => {
         console.warn('Failed to load compliance policies:', error);
         return [];
@@ -249,8 +242,8 @@ export async function loadAllData(): Promise<AllData> {
       }),
     ]);
 
-    console.log('Data loaded successfully:', { profiles: profiles.length, scripts: scripts.length, compliance: compliance.length, apps: apps.length });
-    return { profiles, scripts, compliance, apps };
+    console.log('Data loaded successfully:', { compliance: compliance.length, apps: apps.length });
+    return { profiles: [], scripts: [], compliance, apps };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error loading data';
     console.error('Failed to load Intune data:', errorMessage);
