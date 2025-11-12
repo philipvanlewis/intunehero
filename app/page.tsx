@@ -296,37 +296,69 @@ export default function Page() {
   }, [selectedItems, allData, currentUser]);
 
   const handleDownloadJSON = useCallback(() => {
-    const data = getSelectedData();
-    downloadJSON(data as ExportData, 'intune-configuration.json');
+    try {
+      console.log('[DOWNLOAD_JSON] Starting JSON download...');
+      const data = getSelectedData();
+      console.log('[DOWNLOAD_JSON] Export data:', {
+        profiles: data.profiles.length,
+        scripts: data.scripts.length,
+        compliance: data.compliance.length,
+        apps: data.apps.length,
+      });
+      downloadJSON(data as ExportData, 'intune-configuration.json');
+      console.log('[DOWNLOAD_JSON] JSON download complete');
+    } catch (error) {
+      console.error('[DOWNLOAD_JSON] Error:', error);
+      alert('Failed to download JSON: ' + (error instanceof Error ? error.message : String(error)));
+    }
   }, [getSelectedData]);
 
   const handleDownloadHTML = useCallback(() => {
-    console.log('[DOWNLOAD_HTML] Starting HTML download...');
-    console.log('[DOWNLOAD_HTML] Current state at click time:', {
-      selectedItemsSize: selectedItems.size,
-      selectedItemsArray: Array.from(selectedItems),
-      allDataCount: {
-        profiles: allData.profiles.length,
-        scripts: allData.scripts.length,
-        compliance: allData.compliance.length,
-        apps: allData.apps.length,
-      },
-    });
-    const data = getSelectedData();
-    console.log('[DOWNLOAD_HTML] Export data received:', {
-      profiles: data.profiles.length,
-      scripts: data.scripts.length,
-      compliance: data.compliance.length,
-      apps: data.apps.length,
-    });
-    const html = generateHTMLReport(data as ExportData);
-    downloadHTML(html, 'intune-report.html');
-    console.log('[DOWNLOAD_HTML] HTML download complete');
+    try {
+      console.log('[DOWNLOAD_HTML] Starting HTML download...');
+      console.log('[DOWNLOAD_HTML] Current state at click time:', {
+        selectedItemsSize: selectedItems.size,
+        selectedItemsArray: Array.from(selectedItems),
+        allDataCount: {
+          profiles: allData.profiles.length,
+          scripts: allData.scripts.length,
+          compliance: allData.compliance.length,
+          apps: allData.apps.length,
+        },
+      });
+      const data = getSelectedData();
+      console.log('[DOWNLOAD_HTML] Export data received:', {
+        profiles: data.profiles.length,
+        scripts: data.scripts.length,
+        compliance: data.compliance.length,
+        apps: data.apps.length,
+      });
+      const html = generateHTMLReport(data as ExportData);
+      console.log('[DOWNLOAD_HTML] HTML report generated, length:', html.length);
+      downloadHTML(html, 'intune-report.html');
+      console.log('[DOWNLOAD_HTML] HTML download complete');
+    } catch (error) {
+      console.error('[DOWNLOAD_HTML] Error:', error);
+      alert('Failed to download HTML report: ' + (error instanceof Error ? error.message : String(error)));
+    }
   }, [getSelectedData, selectedItems, allData]);
 
-  const handleDownloadZIP = useCallback(() => {
-    const data = getSelectedData();
-    downloadZIP(data as ExportData, data.scripts);
+  const handleDownloadZIP = useCallback(async () => {
+    try {
+      console.log('[DOWNLOAD_ZIP] Starting ZIP download...');
+      const data = getSelectedData();
+      console.log('[DOWNLOAD_ZIP] Export data:', {
+        profiles: data.profiles.length,
+        scripts: data.scripts.length,
+        compliance: data.compliance.length,
+        apps: data.apps.length,
+      });
+      await downloadZIP(data as ExportData, data.scripts);
+      console.log('[DOWNLOAD_ZIP] ZIP download complete');
+    } catch (error) {
+      console.error('[DOWNLOAD_ZIP] Error:', error);
+      alert('Failed to download ZIP: ' + (error instanceof Error ? error.message : String(error)));
+    }
   }, [getSelectedData]);
 
   const isItemSelected = (id: string, type: string) => {
