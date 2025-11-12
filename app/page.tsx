@@ -255,7 +255,10 @@ export default function Page() {
     });
 
     selectedItems.forEach((key) => {
-      const [type, id] = key.split('-');
+      // Split only on the first dash since IDs can contain dashes (e.g., GUIDs)
+      const dashIndex = key.indexOf('-');
+      const type = key.substring(0, dashIndex);
+      const id = key.substring(dashIndex + 1);
       console.log(`[EXPORT] Processing selection: type=${type}, id=${id}`);
 
       // Map type to collection name: profile→profiles, script→scripts, compliance→compliance, app→apps
