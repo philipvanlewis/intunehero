@@ -4,7 +4,6 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import WelcomeBanner from '@/components/setup/WelcomeBanner';
-import ClientIdInput from '@/components/setup/ClientIdInput';
 import Tabs from '@/components/dashboard/Tabs';
 import SearchFilterBar from '@/components/dashboard/SearchFilterBar';
 import SelectionToolbar from '@/components/dashboard/SelectionToolbar';
@@ -12,8 +11,6 @@ import ResourceCard from '@/components/dashboard/ResourceCard';
 import DetailModal from '@/components/modals/DetailModal';
 import Card from '@/components/ui/Card';
 import {
-  saveClientId,
-  getStoredClientId,
   initializeMSAL,
   loginWithPopup,
   logoutUser,
@@ -27,7 +24,6 @@ export default function Page() {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<string>('');
-  const [clientId, setClientId] = useState<string>(getStoredClientId() || '');
   const [authError, setAuthError] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -55,7 +51,7 @@ export default function Page() {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const clientIdToUse = clientId || process.env.NEXT_PUBLIC_CLIENT_ID;
+        const clientIdToUse = process.env.NEXT_PUBLIC_CLIENT_ID;
         if (clientIdToUse) {
           await initializeMSAL(clientIdToUse);
           setIsInitialized(true);
@@ -70,14 +66,6 @@ export default function Page() {
     };
 
     initAuth();
-  }, [clientId]);
-
-  // Handlers
-  const handleClientIdChange = useCallback((value: string) => {
-    setClientId(value);
-    if (value.trim()) {
-      saveClientId(value.trim());
-    }
   }, []);
 
   const handleLogin = useCallback(async () => {
@@ -319,25 +307,18 @@ export default function Page() {
               )}
 
               {/* Welcome Banner */}
-              <WelcomeBanner clientId={clientId} />
-
-              {/* Client ID Input */}
-              <ClientIdInput
-                value={clientId}
-                onChange={handleClientIdChange}
-              />
+              <WelcomeBanner />
 
               {/* Login Button */}
-              {clientId && (
-                <Card padding="lg" className="text-center">
-                  <button
-                    onClick={handleLogin}
-                    className="px-6 py-3 bg-brand-primary text-white font-semibold rounded-lg hover:bg-brand-dark transition-colors"
-                  >
-                    Sign In
-                  </button>
-                </Card>
-              )}
+              <Card padding="lg" className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+                <button
+                  onClick={handleLogin}
+                  className="px-8 py-4 bg-brand-primary text-white font-semibold rounded-lg hover:bg-brand-dark transition-colors text-lg"
+                >
+                  Sign In with Microsoft 365
+                </button>
+                <p className="text-gray-600 text-sm mt-4">You will be asked to grant permissions to access your Intune configuration</p>
+              </Card>
             </div>
           </div>
         </main>
