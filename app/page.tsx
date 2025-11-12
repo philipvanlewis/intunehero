@@ -83,6 +83,16 @@ export default function Page() {
         // Load data after successful authentication
         try {
           const data = await loadAllData();
+          console.log('[DATA] Loaded data from Graph API:', {
+            profiles: data.profiles.length,
+            scripts: data.scripts.length,
+            compliance: data.compliance.length,
+            apps: data.apps.length,
+          });
+          console.log('[DATA] Sample profile:', data.profiles[0]);
+          console.log('[DATA] Sample script:', data.scripts[0]);
+          console.log('[DATA] Sample compliance:', data.compliance[0]);
+          console.log('[DATA] Sample app:', data.apps[0]);
           setAllData(data);
           console.log('Data loaded successfully');
         } catch (dataError) {
@@ -127,13 +137,19 @@ export default function Page() {
     try {
       setAuthError('');
       setIsLoadingData(true);
-      console.log('Refreshing Intune data from Microsoft Graph...');
+      console.log('[DATA] Refreshing Intune data from Microsoft Graph...');
 
       const data = await loadAllData();
+      console.log('[DATA] Refreshed data from Graph API:', {
+        profiles: data.profiles.length,
+        scripts: data.scripts.length,
+        compliance: data.compliance.length,
+        apps: data.apps.length,
+      });
       setAllData(data);
 
       // Log individual endpoint status
-      console.log('Data refresh complete:', {
+      console.log('[DATA] Data refresh complete:', {
         profiles: data.profiles.length,
         scripts: data.scripts.length,
         compliance: data.compliance.length,
@@ -142,7 +158,7 @@ export default function Page() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to refresh data';
       setAuthError(`Data refresh failed: ${errorMessage}`);
-      console.error('Data refresh error:', errorMessage);
+      console.error('[DATA] Data refresh error:', errorMessage);
     } finally {
       setIsLoadingData(false);
     }
@@ -160,9 +176,12 @@ export default function Page() {
       const newSelected = new Set(selectedItems);
       if (checked) {
         newSelected.add(key);
+        console.log(`[SELECT] Added ${type} item ${id}, total selected: ${newSelected.size}`);
       } else {
         newSelected.delete(key);
+        console.log(`[SELECT] Removed ${type} item ${id}, total selected: ${newSelected.size}`);
       }
+      console.log('[SELECT] Current selectedItems:', Array.from(newSelected));
       setSelectedItems(newSelected);
     },
     [selectedItems]
