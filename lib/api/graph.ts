@@ -221,17 +221,19 @@ export async function loadAllConfigurationProfiles(): Promise<ConfigurationProfi
 
 /**
  * Loads PowerShell scripts from Intune
- * Endpoint: GET /deviceManagement/deviceManagementScripts
- * Tries both v1.0 and beta API versions
+ * Tries multiple endpoints: Platform Scripts and Proactive Remediations
+ * Platform Scripts: /deviceManagement/deviceManagementScripts (v1.0 and beta)
+ * Proactive Remediations: /deviceManagement/deviceHealthScripts (beta)
  * Requires scope: DeviceManagementConfiguration.Read.All
  * @returns Array of PowerShell scripts
  */
 export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
   try {
-    console.log('[GRAPH API] Loading PowerShell scripts (Platform Scripts)...');
+    console.log('[GRAPH API] Loading PowerShell scripts (Platform Scripts & Proactive Remediations)...');
     let response: { value: any[] } | null = null;
+    let scriptSourceEndpoint = '';
 
-    // Try v1.0 first
+    // Try Platform Scripts v1.0 first
     try {
       console.log('[GRAPH API] Attempting /deviceManagement/deviceManagementScripts (v1.0)...');
       response = await callGraphAPI<{ value: any[] }>(
@@ -239,13 +241,14 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
         { apiVersion: 'v1.0' }
       );
       console.log('[GRAPH API] v1.0 endpoint succeeded');
+      scriptSourceEndpoint = 'deviceManagementScripts (v1.0)';
     } catch (v1Error: any) {
       console.warn('[GRAPH API] v1.0 endpoint failed:', {
         message: v1Error?.message,
         status: v1Error?.status,
       });
 
-      // Try beta endpoint as fallback
+      // Try Platform Scripts on beta endpoint as fallback
       try {
         console.log('[GRAPH API] Attempting /deviceManagement/deviceManagementScripts (beta)...');
         response = await callGraphAPI<{ value: any[] }>(
@@ -253,13 +256,14 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
           { apiVersion: 'beta' }
         );
         console.log('[GRAPH API] beta endpoint succeeded');
+        scriptSourceEndpoint = 'deviceManagementScripts (beta)';
       } catch (betaError: any) {
         console.warn('[GRAPH API] beta endpoint failed:', {
           message: betaError?.message,
           status: betaError?.status,
         });
 
-        // Try alternative endpoint /deviceManagement/scripts (legacy)
+        // Try alternative endpoint /deviceManagement/scripts (legacy Platform Scripts)
         try {
           console.log('[GRAPH API] Attempting /deviceManagement/scripts (v1.0)...');
           response = await callGraphAPI<{ value: any[] }>(
@@ -267,14 +271,37 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
             { apiVersion: 'v1.0' }
           );
           console.log('[GRAPH API] /deviceManagement/scripts endpoint succeeded');
+          scriptSourceEndpoint = 'scripts (v1.0)';
         } catch (legacyError: any) {
-          console.warn('[GRAPH API] All PowerShell script endpoints failed:', {
-            v1Error: v1Error?.message,
-            betaError: betaError?.message,
-            legacyError: legacyError?.message,
+          console.warn('[GRAPH API] /deviceManagement/scripts failed:', {
+            message: legacyError?.message,
+            status: legacyError?.status,
           });
-          console.log('[GRAPH API] PowerShell scripts not available in this tenant');
-          return [];
+
+          // Try Proactive Remediations endpoint (beta only)
+          try {
+            console.log('[GRAPH API] Attempting /deviceManagement/deviceHealthScripts (beta) - Proactive Remediations...');
+            response = await callGraphAPI<{ value: any[] }>(
+              '/deviceManagement/deviceHealthScripts',
+              { apiVersion: 'beta' }
+            );
+            console.log('[GRAPH API] Proactive Remediations endpoint succeeded');
+            scriptSourceEndpoint = 'deviceHealthScripts (beta) - Proactive Remediations';
+          } catch (remediationError: any) {
+            console.warn('[GRAPH API] Proactive Remediations endpoint failed:', {
+              message: remediationError?.message,
+              status: remediationError?.status,
+            });
+
+            console.warn('[GRAPH API] All PowerShell/Remediation script endpoints failed:', {
+              v1Error: v1Error?.message,
+              betaError: betaError?.message,
+              legacyError: legacyError?.message,
+              remediationError: remediationError?.message,
+            });
+            console.log('[GRAPH API] PowerShell scripts not available in this tenant');
+            return [];
+          }
         }
       }
     }
@@ -310,7 +337,7 @@ export async function loadPowerShellScripts(): Promise<PowerShellScript[]> {
       };
     });
 
-    console.log(`[GRAPH API] Successfully loaded ${scripts.length} PowerShell scripts`);
+    console.log(`[GRAPH API] Successfully loaded ${scripts.length} PowerShell scripts from endpoint: ${scriptSourceEndpoint}`);
     return scripts;
   } catch (error) {
     console.error('[GRAPH API] Unexpected error loading PowerShell scripts:', error);
