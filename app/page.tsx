@@ -230,16 +230,44 @@ export default function Page() {
       exportedBy: currentUser,
     };
 
+    console.log('[EXPORT] Starting export with selectedItems:', selectedItems.size);
+
     selectedItems.forEach((key) => {
       const [type, id] = key.split('-');
-      const collectionName = (type === 'profile' ? 'profiles' : type + 's') as keyof AllData;
-      const item = allData[collectionName]?.find(
-        (i: any) => i.id === id
-      );
+      console.log(`[EXPORT] Processing selection: type=${type}, id=${id}`);
+
+      // Map type to collection name: profile→profiles, script→scripts, compliance→compliance, app→apps
+      let collectionName: keyof AllData;
+      if (type === 'profile') {
+        collectionName = 'profiles';
+      } else if (type === 'script') {
+        collectionName = 'scripts';
+      } else if (type === 'compliance') {
+        collectionName = 'compliance';
+      } else if (type === 'app') {
+        collectionName = 'apps';
+      } else {
+        console.warn(`[EXPORT] Unknown type: ${type}`);
+        return;
+      }
+
+      const item = allData[collectionName]?.find((i: any) => i.id === id);
+
       if (item) {
         const dataKey = collectionName as keyof ExportData;
         (data[dataKey] as any[]).push(item as any);
+        console.log(`[EXPORT] Added ${type} to export:`, item.displayName || item.name || item.id);
+      } else {
+        console.warn(`[EXPORT] Item not found - type: ${type}, id: ${id}, collectionName: ${collectionName}`);
       }
+    });
+
+    console.log('[EXPORT] Final export data summary:', {
+      profiles: data.profiles.length,
+      scripts: data.scripts.length,
+      compliance: data.compliance.length,
+      apps: data.apps.length,
+      totalSelected: selectedItems.size,
     });
 
     return data;
