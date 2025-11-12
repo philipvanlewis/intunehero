@@ -54,6 +54,10 @@ const requiredScopes = [
   'DeviceManagementApps.Read.All',
   'DeviceManagementServiceConfig.Read.All',
   'DeviceManagementManagedDevices.Read.All',
+  'DeviceManagementScripts.Read.All',
+  'DeviceManagementScripts.ReadWrite.All',
+  'Directory.Read.All',
+  'offline_access',
 ];
 
 const automationScopes = [
