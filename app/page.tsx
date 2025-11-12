@@ -301,10 +301,28 @@ export default function Page() {
   }, [getSelectedData]);
 
   const handleDownloadHTML = useCallback(() => {
+    console.log('[DOWNLOAD_HTML] Starting HTML download...');
+    console.log('[DOWNLOAD_HTML] Current state at click time:', {
+      selectedItemsSize: selectedItems.size,
+      selectedItemsArray: Array.from(selectedItems),
+      allDataCount: {
+        profiles: allData.profiles.length,
+        scripts: allData.scripts.length,
+        compliance: allData.compliance.length,
+        apps: allData.apps.length,
+      },
+    });
     const data = getSelectedData();
+    console.log('[DOWNLOAD_HTML] Export data received:', {
+      profiles: data.profiles.length,
+      scripts: data.scripts.length,
+      compliance: data.compliance.length,
+      apps: data.apps.length,
+    });
     const html = generateHTMLReport(data as ExportData);
     downloadHTML(html, 'intune-report.html');
-  }, [getSelectedData]);
+    console.log('[DOWNLOAD_HTML] HTML download complete');
+  }, [getSelectedData, selectedItems, allData]);
 
   const handleDownloadZIP = useCallback(() => {
     const data = getSelectedData();
