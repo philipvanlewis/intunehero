@@ -10,6 +10,7 @@ import SelectionToolbar from '@/components/dashboard/SelectionToolbar';
 import ResourceCard from '@/components/dashboard/ResourceCard';
 import DetailModal from '@/components/modals/DetailModal';
 import Card from '@/components/ui/Card';
+import { AIChatWidget } from '@/components/ai/AIChatWidget';
 import {
   initializeMSAL,
   loginWithPopup,
@@ -579,6 +580,16 @@ export default function Page() {
             downloadJSON(modalItem, `${modalItem.displayName}.json`);
           }
         }}
+      />
+
+      {/* AI Chat Widget */}
+      <AIChatWidget
+        allData={allData}
+        selectedItems={selectedItems}
+        activeTab={activeTab}
+        searchTerm={searchTerm}
+        platformFilter={platformFilter}
+        currentUser={currentUser}
       />
     </div>
   );
