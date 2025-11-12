@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
+import WelcomeBanner from '@/components/setup/WelcomeBanner';
 import ClientIdInput from '@/components/setup/ClientIdInput';
 import Tabs from '@/components/dashboard/Tabs';
 import SearchFilterBar from '@/components/dashboard/SearchFilterBar';
@@ -316,6 +317,9 @@ export default function Page() {
                   </div>
                 </Card>
               )}
+
+              {/* Welcome Banner */}
+              <WelcomeBanner clientId={clientId} />
 
               {/* Client ID Input */}
               <ClientIdInput
