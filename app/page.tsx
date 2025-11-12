@@ -401,6 +401,17 @@ export default function Page() {
         />
 
         <main className="flex-1 px-6 py-8 max-w-6xl mx-auto w-full">
+          {/* Sign In Section - Top Priority */}
+          <Card padding="lg" className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 mb-6">
+            <button
+              onClick={handleLogin}
+              className="px-8 py-4 bg-brand-primary text-white font-semibold rounded-lg hover:bg-brand-dark transition-colors text-lg"
+            >
+              Sign In with Microsoft 365
+            </button>
+            <p className="text-gray-600 text-sm mt-4">You will be asked to grant permissions to access your Intune configuration</p>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Sidebar */}
             <div className="lg:col-span-1">
@@ -443,17 +454,6 @@ export default function Page() {
 
               {/* Welcome Banner */}
               <WelcomeBanner />
-
-              {/* Login Button */}
-              <Card padding="lg" className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
-                <button
-                  onClick={handleLogin}
-                  className="px-8 py-4 bg-brand-primary text-white font-semibold rounded-lg hover:bg-brand-dark transition-colors text-lg"
-                >
-                  Sign In with Microsoft 365
-                </button>
-                <p className="text-gray-600 text-sm mt-4">You will be asked to grant permissions to access your Intune configuration</p>
-              </Card>
             </div>
           </div>
         </main>
