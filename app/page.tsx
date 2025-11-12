@@ -315,6 +315,22 @@ export default function Page() {
     return selectedItems.has(`${type}-${id}`);
   };
 
+  // Expose state to window for debugging
+  useEffect(() => {
+    (window as any).debugState = {
+      isAuthenticated,
+      selectedItemsSize: selectedItems.size,
+      selectedItemsArray: Array.from(selectedItems),
+      allDataCount: {
+        profiles: allData.profiles.length,
+        scripts: allData.scripts.length,
+        compliance: allData.compliance.length,
+        apps: allData.apps.length,
+      },
+      currentUser,
+    };
+  }, [selectedItems, allData, isAuthenticated, currentUser]);
+
   const filteredData = useMemo(() => getFilteredData(), [
     activeTab,
     searchTerm,
