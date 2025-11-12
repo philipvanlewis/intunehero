@@ -281,7 +281,7 @@ export default function Page() {
       if (item) {
         const dataKey = collectionName as keyof ExportData;
         (data[dataKey] as any[]).push(item as any);
-        console.log(`[EXPORT] Added ${type} to export:`, item.displayName || item.name || item.id);
+        console.log(`[EXPORT] Added ${type} to export:`, (item as any).displayName || (item as any).id);
       } else {
         console.warn(`[EXPORT] Item not found - type: ${type}, id: ${id}, collectionName: ${collectionName}`);
       }
