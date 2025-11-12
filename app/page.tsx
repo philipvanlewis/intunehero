@@ -187,9 +187,22 @@ export default function Page() {
   }, [activeTab, searchTerm, platformFilter, allData]);
 
   const handleViewDetails = useCallback((id: string, type: string) => {
-    const collectionName =
-      type === 'profile' ? 'profiles' : type === 'script' ? 'scripts' : type + 's';
-    const item = allData[collectionName as keyof AllData]?.find(
+    // Map type to collection name: profile→profiles, script→scripts, compliance→compliance, app→apps
+    let collectionName: keyof AllData;
+    if (type === 'profile') {
+      collectionName = 'profiles';
+    } else if (type === 'script') {
+      collectionName = 'scripts';
+    } else if (type === 'compliance') {
+      collectionName = 'compliance';
+    } else if (type === 'app') {
+      collectionName = 'apps';
+    } else {
+      console.warn(`[VIEW_DETAILS] Unknown type: ${type}`);
+      return;
+    }
+
+    const item = allData[collectionName]?.find(
       (i: any) => i.id === id
     ) as ResourceItem | undefined;
     if (item) {
@@ -198,29 +211,13 @@ export default function Page() {
     }
   }, [allData]);
 
-  const handleDownloadJSON = useCallback(() => {
-    const data = getSelectedData();
-    downloadJSON(data as ExportData, 'intune-configuration.json');
-  }, [selectedItems, allData, currentUser]);
-
-  const handleDownloadHTML = useCallback(() => {
-    const data = getSelectedData();
-    const html = generateHTMLReport(data as ExportData);
-    downloadHTML(html, 'intune-report.html');
-  }, [selectedItems, allData, currentUser]);
-
-  const handleDownloadZIP = useCallback(() => {
-    const data = getSelectedData();
-    downloadZIP(data as ExportData, data.scripts);
-  }, [selectedItems, allData, currentUser]);
-
   // Helper Functions
   const getFilteredData = () => {
     const items = allData[activeTab === 'profiles' ? 'profiles' : activeTab === 'scripts' ? 'scripts' : activeTab === 'compliance' ? 'compliance' : 'apps'] as ResourceItem[];
     return filterItems(items || [], searchTerm, platformFilter);
   };
 
-  const getSelectedData = (): ExportData => {
+  const getSelectedData = useCallback((): ExportData => {
     const data: ExportData = {
       profiles: [],
       scripts: [],
@@ -231,6 +228,12 @@ export default function Page() {
     };
 
     console.log('[EXPORT] Starting export with selectedItems:', selectedItems.size);
+    console.log('[EXPORT] Current allData state:', {
+      profilesCount: allData.profiles.length,
+      scriptsCount: allData.scripts.length,
+      complianceCount: allData.compliance.length,
+      appsCount: allData.apps.length,
+    });
 
     selectedItems.forEach((key) => {
       const [type, id] = key.split('-');
@@ -271,7 +274,23 @@ export default function Page() {
     });
 
     return data;
-  };
+  }, [selectedItems, allData, currentUser]);
+
+  const handleDownloadJSON = useCallback(() => {
+    const data = getSelectedData();
+    downloadJSON(data as ExportData, 'intune-configuration.json');
+  }, [getSelectedData]);
+
+  const handleDownloadHTML = useCallback(() => {
+    const data = getSelectedData();
+    const html = generateHTMLReport(data as ExportData);
+    downloadHTML(html, 'intune-report.html');
+  }, [getSelectedData]);
+
+  const handleDownloadZIP = useCallback(() => {
+    const data = getSelectedData();
+    downloadZIP(data as ExportData, data.scripts);
+  }, [getSelectedData]);
 
   const isItemSelected = (id: string, type: string) => {
     return selectedItems.has(`${type}-${id}`);
