@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { CopilotProvider } from '@/components/ai/CopilotProvider';
+// import { CopilotProvider } from '@/components/ai/CopilotProvider';
 
 export const metadata: Metadata = {
   title: 'Intune Configuration Reporter',
@@ -23,11 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <CopilotProvider>
+        {/* CopilotProvider temporarily disabled - causes module loading issues */}
+        {/* <CopilotProvider> */}
           <div className="min-h-screen bg-bg-primary">
             {children}
           </div>
-        </CopilotProvider>
+        {/* </CopilotProvider> */}
       </body>
     </html>
   );
