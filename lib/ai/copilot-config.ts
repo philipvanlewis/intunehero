@@ -45,9 +45,21 @@ export function getAIModelConfig(): AIModelConfig {
 }
 
 /**
- * Check if API is properly configured
+ * Check if AI is enabled (for UI display)
+ */
+export function isAIEnabled(): boolean {
+  return AI_FEATURE_FLAGS.enabled;
+}
+
+/**
+ * Check if API is properly configured (for actual AI operations)
  */
 export function isAIConfigured(): boolean {
+  // First check if AI is enabled
+  if (!isAIEnabled()) {
+    return false;
+  }
+
   const config = getAIModelConfig();
 
   if (config.provider === "azure-openai") {

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^3.14.0",
+    "@copilotkit/backend": "^0.37.0",
     "@copilotkit/react-core": "^1.10.6",
     "@copilotkit/react-textarea": "^1.10.6",
     "@copilotkit/react-ui": "^1.10.6",

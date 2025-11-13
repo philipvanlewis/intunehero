@@ -402,6 +402,8 @@ export default function Page() {
         />
 
         <main className="flex-1 px-6 py-8 max-w-6xl mx-auto w-full">
+          {/* AI Chat Widget - Available even when not authenticated */}
+          <AIChatWidget />
           {/* Sign In Section - Top Priority */}
           <Card padding="lg" className="text-center bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 mb-6">
             <button
