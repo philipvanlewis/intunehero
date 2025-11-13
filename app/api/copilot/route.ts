@@ -23,16 +23,36 @@ const serviceAdapter = new OpenAIAdapter({
   model: process.env.NEXT_PUBLIC_AI_MODEL || "gpt-3.5-turbo",
 } as any);
 
+// Create the CopilotRuntime without manual actions - let it handle messages automatically
 const copilotRuntime = new CopilotRuntime();
 
 export async function POST(req: NextRequest) {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime: copilotRuntime,
-    serviceAdapter,
-    endpoint: "/api/copilot",
-  });
+  try {
+    console.log("[copilot/route] Received POST request");
 
-  return handleRequest(req);
+    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+      runtime: copilotRuntime,
+      serviceAdapter,
+      endpoint: "/api/copilot",
+    });
+
+    console.log("[copilot/route] Handler created, processing request");
+    const response = await handleRequest(req);
+    console.log("[copilot/route] Response status:", response.status);
+    return response;
+  } catch (error) {
+    console.error("[copilot/route] Error:", error);
+    return Response.json(
+      {
+        errors: [
+          {
+            message: `Internal server error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          },
+        ],
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function GET() {
